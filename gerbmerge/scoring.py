@@ -257,7 +257,7 @@ def mergeLines(Lines):
 
 # Main entry point. Gerber file has already been opened, header written
 # out, 1mil tool selected.
-def writeScoring(fid, Place, OriginX, OriginY, MaxXExtent, MaxYExtent):
+def writeScoring(fid, Place, OriginX, OriginY, MaxXExtent, MaxYExtent, AddConnectors = True):
   # For each job, write out 4 score lines, above, to the right, below, and
   # to the left. After we collect all potential scoring lines, we worry
   # about merging, etc.
@@ -265,6 +265,7 @@ def writeScoring(fid, Place, OriginX, OriginY, MaxXExtent, MaxYExtent):
   dy = config.Config['yspacing']/2.0
   extents = (OriginX, OriginY, MaxXExtent, MaxYExtent)
 
+  print "BEGIN"
   Lines = []
   for layout in Place.jobs:
     x = layout.x - dx
@@ -281,11 +282,55 @@ def writeScoring(fid, Place, OriginX, OriginY, MaxXExtent, MaxYExtent):
       addVerticalLine(Lines, X, y, Y, extents)     # to the right of job
       addHorizontalLine(Lines, x, X, y, extents)   # below job
       addVerticalLine(Lines, x, y, Y, extents)     # to the left of job
+      
+      # For each job, find a suitable connector to a 
+      ConnectionPoints = layout.getScoringLineConnectionPoints()
+      if AddConnectors and len(ConnectionPoints):        
+        Connector = None
+        
+        # Try the top connector
+        if Connector == None and Y < extents[3]:
+          print "Use Top"
+          print ConnectionPoints
+          Connector = [ 'V', ConnectionPoints[0], ConnectionPoints[1] ]
+        
+        # Try the bottom connector
+        elif Connector == None and y > extents[1]:
+          print "Use Bot"
+          print ConnectionPoints
+          Connector = [ 'V', ConnectionPoints[4], ConnectionPoints[5]-(dy*1.1) ]
+        
+        # Try the right connector
+        elif Connector == None and X < extents[2]:
+          print "Use Rgt"
+          print ConnectionPoints
+          Connector = [ 'H', ConnectionPoints[2], ConnectionPoints[3] ]
+       
+        # Try the left connector
+        elif Connector == None and x > extents[0]:
+          print "Use Lft"
+          print ConnectionPoints
+          Connector = [ 'H', ConnectionPoints[6], ConnectionPoints[7]-(dx*1.1) ]
+        
+        # If we found a connector, Yay, draw it
+        if Connector != None:
+          if Connector[0] == 'V':
+            print "Add Vertical"
+            print Connector
+            addVerticalLine(Lines, Connector[1], Connector[2], Connector[2]+dy*1.1, extents)
+          
+          if Connector[0] == 'H':
+            print "Add Horizontal"
+            addHorizontalLine(Lines, Connector[1], Connector[1]+dx*1.1, Connector[2], extents)
+            
     else:
       addHorizontalLine(Lines, OriginX, MaxXExtent, Y, extents)   # above job
       addVerticalLine(Lines, X, OriginY, MaxYExtent, extents)     # to the right of job
       addHorizontalLine(Lines, OriginX, MaxXExtent, y, extents)   # below job
       addVerticalLine(Lines, x, OriginY, MaxYExtent, extents)     # to the left of job
+
+  print "END"
+      
 
   # Combine disparate lines into single lines
   Lines = mergeLines(Lines)

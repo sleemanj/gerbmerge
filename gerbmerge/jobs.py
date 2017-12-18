@@ -198,6 +198,13 @@ class Job:
     # to be combined.
     self.ExcellonDecimals = 0     # 0 means global value prevails
 
+    # If we draw scoring lines, we can connect these to the job at a point
+    #  only one point will be connected to, but top, right, bottom, left 
+    #  coordinates should be specified so that an appropriate one can be 
+    #  selected
+    self.ScoringLineConnectionPoints = [ ]
+    self.ScoringLineConnectionLayer  = None
+
   def width_in(self):
     # add metric support (1/1000 mm vs. 1/100,000 inch)
     if config.Config['measurementunits'] == 'inch':
@@ -212,7 +219,25 @@ class Job:
       "Return height in INCHES"
       return float(self.maxy-self.miny)*0.00001
     else:
-      return float(self.maxy-self.miny)*0.001
+      return float(self.maxy-self.miny)*0.001 
+
+  def origin_in(self):
+    # add metric support (1/1000 mm vs. 1/100,000 inch)
+    print "getting origin:"
+    print [ self.minx, self.miny ]
+   
+    if config.Config['measurementunits'] == 'inch':
+      "Return height in INCHES"
+      return [float(self.minx)*0.00001, float(self.miny)*0.00001]
+    else:
+      return [float(self.minx)*0.001, float(self.miny)*0.001]
+
+  def topright_in(self):
+    if config.Config['measurementunits'] == 'inch':
+      "Return height in INCHES"
+      return [float(self.maxx)*0.00001, float(self.maxy)*0.00001]
+    else:
+      return [float(self.maxx)*0.001, float(self.maxy)*0.001]
 
   def jobarea(self):
     return self.width_in()*self.height_in()
@@ -1390,6 +1415,25 @@ class JobLayout:
 
   def jobarea(self):
     return self.job.jobarea()
+  
+  def getScoringLineConnectionPoints(self):
+    if len(self.job.ScoringLineConnectionPoints) == 0:
+      return [ ]
+    
+    Origin = self.job.origin_in()
+    
+    print "Origin: "
+    print Origin
+    return [ 
+      self.job.ScoringLineConnectionPoints[0]-Origin[0]+self.x,
+      self.job.ScoringLineConnectionPoints[1]-Origin[1]+self.y,
+      self.job.ScoringLineConnectionPoints[2]-Origin[0]+self.x,
+      self.job.ScoringLineConnectionPoints[3]-Origin[1]+self.y,
+      self.job.ScoringLineConnectionPoints[4]-Origin[0]+self.x,
+      self.job.ScoringLineConnectionPoints[5]-Origin[1]+self.y,
+      self.job.ScoringLineConnectionPoints[6]-Origin[0]+self.x,
+      self.job.ScoringLineConnectionPoints[7]-Origin[1]+self.y,
+    ]
 
 def rotateJob(job, degrees = 90, firstpass = True):
   """Create a new job from an existing one, rotating by specified degrees in 90 degree passes"""
@@ -1405,6 +1449,58 @@ def rotateJob(job, degrees = 90, firstpass = True):
         J = Job(job.name+'*rotated90')
   else:
     J = Job(job.name)
+
+  if len(job.ScoringLineConnectionPoints):
+    NewPoints = [ 0,0, 0,0, 0,0, 0,0 ]
+    
+    topright = job.topright_in()
+    origin = job.origin_in()
+    offset = topright[0] - origin[1]
+    
+    for i in [ 0, 2, 4, 6 ]:
+      x = job.ScoringLineConnectionPoints[i]
+      y = job.ScoringLineConnectionPoints[i+1]
+      newx = -(y - origin[1]) + origin[0] + offset
+      newy = (x-origin[0]) + origin[1]
+      NewPoints[i] = newx
+      NewPoints[i+1] = newy
+      
+    if 0:
+      TopRight = job.topright_in()
+      print
+      print "TR: "
+      print TopRight
+      print
+      
+      # Top 
+      # Left Y becomes Top X
+      # maxX-LeftX becomes TopY
+      NewPoints[0] = job.ScoringLineConnectionPoints[7]
+      NewPoints[1] = TopRight[0]-job.ScoringLineConnectionPoints[6]
+      
+      # Right
+      # Top Y becomes Right X
+      # MaxX-Top X becomes Right Y
+      NewPoints[2] = job.ScoringLineConnectionPoints[1]        
+      NewPoints[3] = TopRight[0] - job.ScoringLineConnectionPoints[0]
+      
+      # Bottom
+      # Right Y becomes Bottom X
+      NewPoints[4] = job.ScoringLineConnectionPoints[3]
+      NewPoints[5] = TopRight[0] - job.ScoringLineConnectionPoints[2]
+      
+      # Left
+      # Bottom Y becomes Left X
+      NewPoints[6] = job.ScoringLineConnectionPoints[5]
+      NewPoints[7] = TopRight[0] - job.ScoringLineConnectionPoints[4]
+      
+    print
+    print "Old -> New : Width = " + str(job.maxx)
+    print job.ScoringLineConnectionPoints
+    print NewPoints
+    print
+    
+    J.ScoringLineConnectionPoints = NewPoints
 
   # Keep the origin (lower-left) in the same place
   J.maxx = job.minx + job.maxy-job.miny

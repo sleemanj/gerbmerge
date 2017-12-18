@@ -377,7 +377,11 @@ def parseConfigFile(fname, Config=Config, Jobs=Jobs):
           J.Repeat = int(fname)
         except:
           raise RuntimeError, "Repeat count '%s' in config file is not a valid integer" % fname
-
+      elif layername=='scoringlineconnectionpoints':
+        J.ScoringLineConnectionPoints = map(float,fname.split(','))
+      elif layername=='scoringlineconnectionlayer':
+        J.ScoringLineConnectionLayer = fname
+        
     for layername in CP.options(jobname):
       fname = CP.get(jobname, layername)
 
@@ -401,7 +405,8 @@ def parseConfigFile(fname, Config=Config, Jobs=Jobs):
       print '%s: Job %s is missing the following layers:' % (errstr, jobname)
       for layername in LL.keys():
         print '  %s' % layername
-
+    
+    
     # Store the job in the global Jobs dictionary, keyed by job name
     Jobs[jobname] = J
 
